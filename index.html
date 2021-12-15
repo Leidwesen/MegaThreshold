@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head >
+   <meta charset="utf-8">
+   <title>Mega Threshold Calculator</title>
+
+   <link rel="stylesheet" href="css/styles.css" />
+   <script type="text/javascript" src="js/code.js"></script>   
+</head>
+<body>
+  <div id='pageButtons'>
+    <button id='formPageBTN'>Function</button>
+    <button id='infoPageBTN'>Information</button>
+    <button id='exmpPageBTN'>Examples</button>
+  </div>
+  <div id='formPage'>
+    <form id='mtc'>
+      <label for='wN'>Non-Mega type weather boosted</label><br>
+      <input id='wN' type='checkbox'></input><br>
+      <label for='wM'>Mega type weather boosted</label><br>
+      <input id='wM' type='checkbox'></input><br><br>
+
+      <label for='k'>DPS% of mega pokemon compared to best non-mega typed alternative</label><br>
+      <input id='k' type='number' min=0 step=0.01 required></input><br><br>
+
+      <label for='r'>DPS% of mega typed attackers compared to best non-mega types</label><br>
+      <input id='r' type='number' min=0 step=0.01 required></input><br><br>
+    </form>
+
+    <div id='func'>
+      <text id='functionText'></text><br>
+      <text>j = Number of OTHER players in lobby matching mega type.</text><br>
+      <button id='exactBTN'>Show Exact</button><br><br>
+      <table id='dataTable'></table>
+    </div>
+  </div>
+  <div id='infoPage' class=hide>
+    <p>Assumed Damage model:<br>
+      Damage without mega: D*[j*wM*r + (n-1-j)*wN + o*wM*r + (1-o)*wN]<br>
+      Damage with mega: D*[j*bM*wM*r + (n-1-j)*bN*wN + k*wM]<br><br>
+      
+      Variables:<br>
+       n  = Number of trainers in lobby<br>
+       D = Arbitrary scalar to obtain average DPS, always cancels out<br>
+       j = Number of trainers using mega-boosted types<br>
+      wM = Weather boost for mega-boosted types. Either 1.2 or 1.0<br>
+      wM = Weather boost for non-mega-boosted types. Either 1.2 or 1.0<br>
+       r = DPS% of mega typed attackers compared to non-mega type<br>
+       k = DPS% of mega pokemon vs best non-mega typed alternative<br>
+       o = What type the mega pokemon replaced. 1 means mega-typed, 0 means non.<br>
+      bN = 1.1, damage boost for non-mega-boosted types<br>
+      bM = 1.3, damage boost for mega-boosted types<br><br>
+
+      o is always set to the value that does more damage, this is figured out by comparing wM*r (mega-typed) to wN (non-mega typed). It can have adverse effects on the table otherwise (comparing to a weak prior suggests lower MOLS than expected)<br><br>
+
+      Plugging in bN and bM and applying algebra, the solution is obtained:<br>
+      ≥ (11 - 10*(o*(1 - r*wM/wN) + k*wM/wN)) + j * (1 - 3*r*wM/wN)<br><br>
+
+      ASSUMPTIONS:<br>
+      • This assumes that every trainer is contributing equally to the group's DPS. For players contributing more than the average, it may not be as beneficial to switch to a lower DPS mega. Conversely, below-average players could benefit the group more by using megas.<br><br>
+
+      ———<br><br>
+
+      HISTORY:<br>
+      The damage model is rather complex, so let's build up to it.<br>
+      note: all models shown as "posterior damage with mega ≥ prior damage without mega"<br>
+      The simplest damage model ignores weather, mixed typings and amounts, and assumes the mega pokemon deals no damage. Prior, we have n people doing damage. Posterior, we lose 1 but the rest are now boosted.<br><br>
+      1 ] (n-1)*b*D ≥ n*D<br>
+      1s] n ≥ b/(b-1)<br>
+      D can be factored out with no issue. This is consistent across all models, and will be ignored from now on.<br>
+      To use 1], just plug in either bN or bM. This ignores many things, however. Let's reintroduce the idea of the mega dealing damage.<br><br>
+      2 ] (n-1)*b + k ≥ n<br>
+      2s] n ≥ (b-k)/(b-1)<br>
+      The new variable k now has to be determined for each use case. It can range from >1 (eg mega gengar) down to 0 (dodging constantly for some reason). However, this model is assuming that either everyone matches the mega type, or no one. Let's add variance.<br><br>
+      3 ] j*bM + (n-1-j)*bN + k ≥ n<br>
+      3s] n ≥ (j*(bN-bM) + bN - k)/(bN-1)<br>
+      3!] n ≥ 11 - 10k - 2j<br>
+      In order to handle j, we now have to consider both boosts at once. The solution simplifies well by plugging in bN and bM. This still ignores weather boosts. However, to add them the prior can no longer be ignored. We assume no one else changes their typing while we mega evolve.<br><br>
+      4 ] j*bM*wM + (n-1-j)*bN*wN + k*wM ≥ j*wM + (n-1-j)*wN + o*wM + (1-o)*wN<br>
+      The o is because we don't know what type the mega's user would use in the prior. It's determined after all other information to maximize the prior. The last big flaw is this is still assuming the damage contribution from mega types and non-mega types are the same. Adding a scalar against all mega types allows for finer control, and is the model used.<br><br>
+      5 ] j*bM*wM*r + (n-1-j)*bN*wN + k*wM ≥ j*wM*r + (n-1-j)*wN + o*wM*r + (1-o)*wN<br>
+      5s] n ≥ [j * (wN*(bN-1) - wM*r*(bM-1)) + bN*wN + o*(r*wM - wN) - k*wM] / [wN*(bN-1)]<br>
+      5!] n ≥ [11 - 10*[o*(1 - r*wM/wN) + k*wM/wN]] + j * (1 - 3*r*wM/wN)<br>
+      That all models are the same can be confirmed by reintroducing our assumptions.<br>
+      Applying r=wN=wM=1 to 5!, 3! is obtained. Using j=0 gives 2s with b=bN, and j=n-1 gives it with b=bM. Clearly, k=0 turns 2s into 1s.<br><br><br>
+
+      u/FatalisticFeline-47
+    </p>
+  </div>
+  <div id='exmpPage' class=hide>
+    <p>
+      EXAMPLES:<br><br>
+
+      Kyurem raid hour is coming up, and it's sunny (no relevant weather boosts). You're considering using mega steelix, since it boosts steel. But you don't know how many other people will use metagross. By looking at pokebattler sims, shadow metagross has 115% faster TTW than shadow machamp, and mega steelix has 69.8% slower TTW than the same machamp. <br>
+      Entering [x][x][0.698][1.15] shows that so long as at least there are 2 other metagross, bringing in mega steelix always increases the overall DPS. With no steel types, it still increases damage with lobbies of at least 6 trainers.<br><br>
+
+      Now Heatran raid hour is happening, it's sunny, and you're wondering if a mega could help increase damage. You no longer have steelix energy, but do have a blastoise. Pokebattler again informs us that shadow gyarados has 55.5% TTW of landorus therian form, while blastoise has 58.7%.<br>
+      Entering [Y][x][0.598][0.555] shows that even if no one else brings water types, the blastoise is a net increase with at least 7 trainers.<br><br>
+
+      NOTE:<br>
+      The DPS% values do not need to be perfect to get a good picture of what's going on. Natural variation in players choices would render any precision useless. A general ballpark / good guess gives informative enough results. 
+    </p>
+  </div>
+</body>
+</html>

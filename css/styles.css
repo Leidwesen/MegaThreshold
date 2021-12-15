@@ -1,0 +1,12 @@
+body {
+    font-family: "Courier New", Courier;
+    background-color: rgb(196,196,196);
+}
+
+button {
+    font-family: "Courier New", Courier;
+}
+
+.hide {
+    display: none;
+}
